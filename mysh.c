@@ -10,82 +10,176 @@
 #include <sys/stat.h> //open()
 #include <fcntl.h> //O_RDONLY, O_APPEND, O_WRONLY, O_CREAT
 
-//function declarations
-int prompt_command(char args[][100]);
-void handle_cd(char *path, char *home);
-char * find_home(char *env[]);
+//helper functions' declarations
+void tokenize(char * s, char * symbol, char *result[], int *len);
+void find_home(char *env[]);
+void find_path(char *env[]);
+char * prompt_command();
+void check_redirection(char *result, int *index);
+
+//part1 funtion declarations
+void handle_commands();
+void handle_cd();
+void handle_exit();
 void handle_other_command();
-char *check_redirection(char args[][100], int argc);
+void execute_command();
 void handle_redirection(char *file_name, char *direction);
+
+//global variables
+char HOME[50]; //store the HOME path retrieved from env
+char *PATH[20]; //store paths from PATH retrieved from env
+int LEN_PATH;
+char *MY_ARGS[20]; //store all command args including
+                    //redirection and args go after
+int LEN_MY_ARGS;
+char *SECOND_ARG; // == MY_ARGS[1]
+
 
 //main funtion
 int main(int argc, char *argv[], char *env[])
 {
-  /*char args[10][100];
-  int len = prompt_command(args);
-  printf("%d\n",len);
-  char *redirect = check_redirection(args, len);
-  if (redirect != NULL)
-    puts(redirect);*/
-  handle_redirection("file_name", ">");
+  //set up variables
+  find_home(env); //var HOME
+  find_path(env); //var PATH, LEN_PATH
+  char *input_line = prompt_command();
+  tokenize(input_line, " ", MY_ARGS, &LEN_MY_ARGS); //var MY_ARGS, LEN_MY_ARGS
+
+  if (LEN_MY_ARGS > 1)
+	SECOND_ARG = MY_ARGS[1];
+  
+  //execute the program
+  handle_commands();
+ 
+  //check cwd
+  char cwd[100];
+  getcwd(cwd,100);
+  printf("%s\n", cwd);
   return 0;
+}
+
+//Helper functions
+/******************************************************/
+
+//tokenize a string by a symbol
+//return result and len of the result
+void tokenize(char * s, char * symbol, char *result[], int *len)
+{
+  int i = 0;
+
+  if (s[strlen(s) - 1] == '\n')
+  	s[strlen(s)-1] = '\0';	//delete the last \n
+
+  char *tok = strtok(s, symbol);
+  while (tok != NULL)
+    {
+      result[i] = tok;
+      tok = strtok(NULL, symbol);
+      i++;
+    }
+  
+  *len = i;
+}
+
+
+//find HOME in the env
+void find_home(char *env[])
+{
+  int i = 0;
+  while (env[i] != NULL)
+    {
+      if (strncmp(env[i], "HOME=", 5) == 0) //found the HOME
+	{
+	  strcpy(HOME, env[i]+5);
+	  break;
+	}
+      i++;
+      }
+}
+
+//find PATH in the env
+void find_path(char *env[])
+{
+  int i = 0;
+
+  char *path;
+  while (env[i] != NULL)
+    {
+      if (strncmp(env[i], "PATH=", 5) == 0) //found the PATH
+	{
+	  path = env[i]+5;
+	  break;
+	}
+      i++;
+    }
+
+  if (env[i] != NULL) //break path down to make PATH
+  {
+	tokenize(path, ":", PATH, &LEN_PATH);
+  }
+}
+
+//prompt an input line and return the input
+char * prompt_command()
+{
+  char *line = (char *) malloc(128*sizeof(char));
+  printf("Command: ");
+  fgets(line, 128, stdin);
+
+  return line;
+}
+
+//check for redirection
+//return a string of either ">","<", or ">>"
+//return NULL if there is no redirection
+//return index of the derirction symbol
+void check_redirection(char *result, int *index)
+{
+  for (int i = 0; i < LEN_MY_ARGS; i++)
+    {
+      if (strcmp(MY_ARGS[i], "<") == 0 ||
+	  strcmp(MY_ARGS[i], ">") == 0 ||
+	  strcmp(MY_ARGS[i], ">>") == 0)
+	{
+	  result = MY_ARGS[i];
+	  *index = i;
+	  break;
+	}
+    }
+  printf("redi =%s index=%d\n", result, *index);
 }
 
 //Part 1: Single Command with I/O Redirection
 /******************************************************/
 
-//prompt an input line and return the input
-//as a list of arguments
-//return the number of arguments
-int prompt_command(char args[][100])
+//handle all commands
+void handle_commands()
 {
-  int i = 0;
-  char line[128];
-  printf("Command: ");
-  fgets(line, 128, stdin);
-
-  char *tok = strtok(line, " ");
-  while (tok != NULL)
-    {
-      strcpy(args[i], tok);
-      tok = strtok(NULL, " ");
-      i++;
-    }
-  
-  return i;
+  char *command = MY_ARGS[0];
+  if (strcmp(command,"cd")==0)
+    handle_cd();
+  else if (strcmp(command, "exit") == 0)
+    handle_exit();
+  else
+    handle_other_command();
 }
 
 //Handle command = "cd"
-void handle_cd(char *path, char *home)
-{
+void handle_cd()
+{ 
   int ret = 0;
-  if (strcmp(path, "") == 0)
-    ret = chdir(home);
+  if (LEN_MY_ARGS == 1)
+    ret = chdir(HOME);
   else
-      ret = chdir(path);
+    ret = chdir(SECOND_ARG);
   if (ret==-1)
     printf("Invalid path\n");
 }
 
-//find $HOME in the env
-char * find_home(char *env[])
+void handle_exit()
 {
-  int i = 0;
-  char *home;
-  while (env[i] != NULL)
-    {
-      if (strncmp(env[i], "HOME=", 5) == 0) //found the HOME
-	{
-	  home = env[i]+5;
-	  break;
-	}
-      i++;
-      }
-
-  if (env[i] == NULL)
-    home = "Could not find HOME";
-  return home;
+  exit(1);
 }
+
 
 //handle commands different than "cd" and "exist"
 void handle_other_command()
@@ -105,28 +199,30 @@ void handle_other_command()
     }
   else //child's execution
     {
-      printf("Process the child\n");//child_process(); //implement later
+      execute_command();
     }
 }
 
-//check for redirection
-//return a string of either ">","<", or ">>"
-//return NULL if there is no redirection
-char *check_redirection(char args[][100], int argc)
-{
-  char * result = NULL;
-  for (int i = 0; i < argc; i++)
-    {
-      if (strcmp(args[i], "<") == 0 ||
-	  strcmp(args[i], ">") == 0 ||
-	  strcmp(args[i], ">>") == 0)
-	{
-	  result = args[i];
-	  break;
-	}
-    }
-  return result;
+
+//execute command by execve()
+void execute_command()
+{//working on this, dont know why check_direction failed at 139
+  printf("enter executing command\n");
+  //Check for redirection
+  int index_redi = 0;
+  char *redi = NULL;
+
+  check_redirection(redi, &index_redi);
+  
+  //Handle redirection
+  if (redi != NULL)
+    handle_redirection(MY_ARGS[index_redi + 1], redi);
+ 
+  printf("executing the command\n");
+  //execve("ls", (const)args, envp);//file_path, myargv, env);//DOING THIS
+
 }
+
 
 //Handle I/O redirection
 void handle_redirection(char *file_name, char *direction)
@@ -151,3 +247,10 @@ void handle_redirection(char *file_name, char *direction)
       puts("Invalid redirection");
     }
 }
+/****************************************************************/
+
+
+
+
+
+
