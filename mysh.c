@@ -33,6 +33,7 @@ char *MY_ARGS[20]; //store all command args including
                     //redirection and args go after
 int LEN_MY_ARGS;
 char *SECOND_ARG; // == MY_ARGS[1]
+char *MY_ENVP[100];
 
 
 //main funtion
@@ -43,17 +44,19 @@ int main(int argc, char *argv[], char *env[])
   find_path(env); //var PATH, LEN_PATH
   char *input_line = prompt_command();
   tokenize(input_line, " ", MY_ARGS, &LEN_MY_ARGS); //var MY_ARGS, LEN_MY_ARGS
+  int i = 0;
+  while (env[i] != NULL)
+  {
+    MY_ENVP[i] = env[i]; //var MY_ENVP
+    i++;
+  }
 
   if (LEN_MY_ARGS > 1)
 	SECOND_ARG = MY_ARGS[1];
-  
+
   //execute the program
   handle_commands();
- 
-  //check cwd
-  char cwd[100];
-  getcwd(cwd,100);
-  printf("%s\n", cwd);
+
   return 0;
 }
 
@@ -79,7 +82,6 @@ void tokenize(char * s, char * symbol, char *result[], int *len)
   
   *len = i;
 }
-
 
 //find HOME in the env
 void find_home(char *env[])
@@ -206,9 +208,7 @@ void handle_other_command()
 
 //execute command by execve()
 void execute_command()
-{//working on this, dont know why check_direction failed at 139
-  printf("enter executing command\n");
-  //Check for redirection
+{
   int index_redi = 0;
   char *redi = NULL;
 
@@ -218,9 +218,16 @@ void execute_command()
   if (redi != NULL)
     handle_redirection(MY_ARGS[index_redi + 1], redi);
  
-  printf("executing the command\n");
-  //execve("ls", (const)args, envp);//file_path, myargv, env);//DOING THIS
-
+  //executing the command
+  for (int i = 0; i < LEN_PATH; i++)
+  {
+    char *file_path = PATH[i];
+    strcat(file_path, "/");
+    strcat(file_path, MY_ARGS[0]);
+//sprintf("lifepath=%s args[0]=%s args[1]=%s \n", file_path, MY_ARGS[0], MY_ARGS[1]);
+    execve(file_path, MY_ARGS, MY_ENVP);
+//somehow execve does not return anything
+  }
 }
 
 
