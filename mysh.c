@@ -23,8 +23,15 @@ void handle_commands();
 void handle_cd();
 void handle_exit();
 void handle_other_command();
-void execute_command();
+void execute_command(char *my_args[]);
 void handle_redirection(char *file_name, char *direction);
+
+//part2 funtion declarations
+int check_pipe();
+void break_pipe_command(char *head_ARGS[], 
+	char *tail_ARGS[], int pipe_index);
+void handle_pipe(char *head_ARGS[], char *tail_ARGS[]);
+void child_execution();
 
 //global variables
 char HOME[50]; //store the HOME path retrieved from env
@@ -205,21 +212,21 @@ void handle_other_command()
     }
   else //child's execution
     {
-      execute_command();
+      child_execution();
+      //execute_command(MY_ARGS);
     }
 }
 
-
 //execute command by execve()
-void execute_command()
+void execute_command(char *my_args[])
 {
   int index_redi = 0;
   char *redi = NULL;
   char *args[20];
   int i = 0;
-  while (MY_ARGS[i] != NULL)
+  while (my_args[i] != NULL)
   {
-    args[i] = MY_ARGS[i];
+    args[i] = my_args[i];
     i++;
   } //copy MY_ARGS over to args
 
@@ -227,7 +234,7 @@ void execute_command()
   //Handle redirection
   if (redi != NULL)
   {
-    handle_redirection(MY_ARGS[index_redi + 1], redi);
+    handle_redirection(my_args[index_redi + 1], redi);
     args[index_redi] = NULL;
   }
 
@@ -265,10 +272,92 @@ void handle_redirection(char *file_name, char *direction)
       puts("Invalid redirection");
     }
 }
-/****************************************************************/
 
+//Part 2: Commands with Pipes
+/******************************************************/
 
+//return 0 if there is no pipe or return the pipe index
+int check_pipe()
+{
+  int result = 0;
+  for (int i = 0; i < LEN_MY_ARGS; i++)
+    {
+      if (strcmp(MY_ARGS[i], "|") == 0)
+	{
+	  result = i;
+	  break;
+	}
+    }
+  return result;
+}
 
+//break down a command that has a pipe to
+//head_ARGS and tail_ARGS
+//pre-condition: the command has at least a pipe
+void break_pipe_command(char *head_ARGS[], 
+	char *tail_ARGS[], int pipe_index)
+{
+  //make a copy of MY_ARGS
+  /*char args[50][20];
+  for (int i = 0; i < LEN_MY_ARGS; i++)
+  {
+    strcpy(args[i], MY_ARGS[i]);
+  }  
 
+  for (int i = 0; i < pipe_index; i++)
+  {
+    head_ARGS[i] = args[i];
+  }
+  for (int i = pipe_index + 1; i < LEN_MY_ARGS; i++)
+  {
+    tail_ARGS[i-pipe_index-1] = args[i];
+  }*/
+}
 
+//child sh handle pipe, redirection, and execution
+void child_execution()
+{
+  //int pipe_index = check_pipe();
+  char *head_ARGS[20];
+  char *tail_ARGS[20];
 
+  if (check_pipe() == 0) //no pipe
+  {
+    execute_command(MY_ARGS);
+  }
+  else //there is a pipe
+  {
+    break_pipe_command(head_ARGS, tail_ARGS, 0);//pipe_index);
+    //handle_pipe(head_ARGS, tail_ARGS);
+  }
+}
+
+//handle commands with pipe
+void handle_pipe(char *head_ARGS[], char *tail_ARGS[])
+{
+  int pd[2];
+  pipe(pd); //create PIPE, pd[0] for read from the pipe
+	    //, pd[1] for write to the pipe
+  int pid = fork();
+  if (pid < 0)
+  {
+    printf("Pipe fork failed\n");
+    exit(1);
+  }
+  else if (pid) //parent, to write
+  {
+    close(pd[0]);
+    close(1);
+    dup(pd[1]);
+    close(pd[1]);
+    execute_command(head_ARGS);
+  }
+  else //child, to read
+  {
+    close(pd[1]);
+    close(0);
+    dup(pd[0]);
+    close(pd[0]);
+    execute_command(tail_ARGS);
+  }
+}
