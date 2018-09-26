@@ -224,7 +224,6 @@ void execute_command()
   } //copy MY_ARGS over to args
 
   redi = check_redirection(&index_redi);
-
   //Handle redirection
   if (redi != NULL)
   {
@@ -259,7 +258,7 @@ void handle_redirection(char *file_name, char *direction)
   else if (strcmp(direction, ">>") == 0) //replace stdout with file to append
     {
       close(1);
-      open(file_name, O_APPEND|O_CREAT, 0644);
+      open(file_name, O_APPEND|O_WRONLY|O_CREAT, 0644);
     }
   else
     {
