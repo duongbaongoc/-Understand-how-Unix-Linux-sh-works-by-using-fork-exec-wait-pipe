@@ -11,11 +11,12 @@
 #include <fcntl.h> //O_RDONLY, O_APPEND, O_WRONLY, O_CREAT
 
 //helper functions' declarations
+void set_env(char *env[]);
 void tokenize(char * s, char * symbol, char *result[], int *len);
 void find_home(char *env[]);
 void find_path(char *env[]);
 char * prompt_command();
-void check_redirection(char *result, int *index);
+char * check_redirection(int *index);
 
 //part1 funtion declarations
 void handle_commands();
@@ -32,7 +33,6 @@ int LEN_PATH;
 char *MY_ARGS[20]; //store all command args including
                     //redirection and args go after
 int LEN_MY_ARGS;
-char *SECOND_ARG; // == MY_ARGS[1]
 char *MY_ENVP[100];
 
 
@@ -45,15 +45,7 @@ int main(int argc, char *argv[], char *env[])
 
   char *input_line = prompt_command();
   tokenize(input_line, " ", MY_ARGS, &LEN_MY_ARGS); //var MY_ARGS, LEN_MY_ARGS
-  int i = 0;
-  while (env[i] != NULL)
-  {
-    MY_ENVP[i] = env[i]; //var MY_ENVP
-    i++;
-  }
-
-  if (LEN_MY_ARGS > 1)
-	SECOND_ARG = MY_ARGS[1];
+  set_env(env); //var MY_ENVP
 
   //execute the program
   handle_commands();
@@ -63,6 +55,16 @@ int main(int argc, char *argv[], char *env[])
 
 //Helper functions
 /******************************************************/
+
+void set_env(char *env[])
+{
+  int i = 0;
+  while (env[i] != NULL)
+  {
+    MY_ENVP[i] = env[i];
+    i++;
+  }
+}
 
 //tokenize a string by a symbol
 //return result and len of the result
@@ -135,8 +137,9 @@ char * prompt_command()
 //return a string of either ">","<", or ">>"
 //return NULL if there is no redirection
 //return index of the derirction symbol
-void check_redirection(char *result, int *index)
-{
+char *check_redirection(int *index)
+{ 
+  char *result = NULL;
   for (int i = 0; i < LEN_MY_ARGS; i++)
     {
       if (strcmp(MY_ARGS[i], "<") == 0 ||
@@ -148,6 +151,7 @@ void check_redirection(char *result, int *index)
 	  break;
 	}
     }
+  return result;
 }
 
 //Part 1: Single Command with I/O Redirection
@@ -172,7 +176,7 @@ void handle_cd()
   if (LEN_MY_ARGS == 1)
     ret = chdir(HOME);
   else
-    ret = chdir(SECOND_ARG);
+    ret = chdir(MY_ARGS[1]);
   if (ret==-1)
     printf("Invalid path\n");
 }
@@ -211,12 +215,22 @@ void execute_command()
 {
   int index_redi = 0;
   char *redi = NULL;
+  char *args[20];
+  int i = 0;
+  while (MY_ARGS[i] != NULL)
+  {
+    args[i] = MY_ARGS[i];
+    i++;
+  } //copy MY_ARGS over to args
 
-  check_redirection(redi, &index_redi);
-  
+  redi = check_redirection(&index_redi);
+
   //Handle redirection
   if (redi != NULL)
+  {
     handle_redirection(MY_ARGS[index_redi + 1], redi);
+    args[index_redi] = NULL;
+  }
 
   //executing the command
   for (int i = 0; i < LEN_PATH; i++)
@@ -224,8 +238,8 @@ void execute_command()
     char file_path[50];
     strcpy(file_path, PATH[i]);
     strcat(file_path, "/");
-    strcat(file_path, MY_ARGS[0]);
-    execve(file_path, MY_ARGS, MY_ENVP);
+    strcat(file_path, args[0]);
+    execve(file_path, args, MY_ENVP);
   }
 }
 
