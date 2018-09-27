@@ -13,8 +13,8 @@
 //helper functions' declarations
 void set_env(char *env[]);
 void tokenize(char * s, char * symbol, char *result[], int *len);
-void find_home(char *env[]);
-void find_path(char *env[]);
+void find_home();
+void find_path();
 char * prompt_command();
 char * check_redirection(int *index);
 
@@ -47,8 +47,8 @@ char *MY_ENVP[100];
 int main(int argc, char *argv[], char *env[])
 {	
   //set up variables
-  find_home(env); //var HOME
-  find_path(env); //var PATH, LEN_PATH
+  find_home(); //var HOME
+  find_path(); //var PATH, LEN_PATH
 
   char *input_line = prompt_command();
   tokenize(input_line, " ", MY_ARGS, &LEN_MY_ARGS); //var MY_ARGS, LEN_MY_ARGS
@@ -94,37 +94,18 @@ void tokenize(char * s, char * symbol, char *result[], int *len)
 }
 
 //find HOME in the env
-void find_home(char *env[])
+void find_home()
 {
-  int i = 0;
-  while (env[i] != NULL)
-    {
-      if (strncmp(env[i], "HOME=", 5) == 0) //found the HOME
-	{
-	  strcpy(HOME, env[i]+5);
-	  break;
-	}
-      i++;
-      }
+    strcpy(HOME, getenv("HOME"));
 }
 
 //find PATH in the env
-void find_path(char *env[])
+void find_path()
 {
   int i = 0;
+  char *path = getenv("PATH");  
 
-  char *path;
-  while (env[i] != NULL)
-    {
-      if (strncmp(env[i], "PATH=", 5) == 0) //found the PATH
-	{
-	  path = env[i]+5;
-	  break;
-	}
-      i++;
-    }
-
-  if (env[i] != NULL) //break path down to make PATH
+  if (path != NULL) //break path down to make PATH
   {
 	tokenize(path, ":", PATH, &LEN_PATH);
   }
@@ -202,7 +183,7 @@ void handle_other_command()
 
   if (pid < 0)
   {
-    printf("Fold failed\n");
+    printf("Fork failed\n");
     exit(1);
   }
   else if (pid) //parent's execution
@@ -212,8 +193,7 @@ void handle_other_command()
     }
   else //child's execution
     {
-      child_execution();
-      //execute_command(MY_ARGS);
+	child_execution();
     }
 }
 
@@ -222,20 +202,14 @@ void execute_command(char *my_args[])
 {
   int index_redi = 0;
   char *redi = NULL;
-  char *args[20];
   int i = 0;
-  while (my_args[i] != NULL)
-  {
-    args[i] = my_args[i];
-    i++;
-  } //copy MY_ARGS over to args
 
   redi = check_redirection(&index_redi);
   //Handle redirection
   if (redi != NULL)
   {
     handle_redirection(my_args[index_redi + 1], redi);
-    args[index_redi] = NULL;
+    my_args[index_redi] = NULL;
   }
 
   //executing the command
@@ -244,9 +218,10 @@ void execute_command(char *my_args[])
     char file_path[50];
     strcpy(file_path, PATH[i]);
     strcat(file_path, "/");
-    strcat(file_path, args[0]);
-    execve(file_path, args, MY_ENVP);
+    strcat(file_path, my_args[0]);
+    execve(file_path, my_args, MY_ENVP);
   }
+  printf("Invalid command\n");
 }
 
 //Handle I/O redirection
@@ -298,12 +273,12 @@ void break_pipe_command(char *head_ARGS[],
 	char *tail_ARGS[], int pipe_index)
 {
   //make a copy of MY_ARGS
-  /*char args[50][20];
+  char args[50][20];
   for (int i = 0; i < LEN_MY_ARGS; i++)
   {
     strcpy(args[i], MY_ARGS[i]);
   }  
-
+  //make head and tail
   for (int i = 0; i < pipe_index; i++)
   {
     head_ARGS[i] = args[i];
@@ -311,24 +286,27 @@ void break_pipe_command(char *head_ARGS[],
   for (int i = pipe_index + 1; i < LEN_MY_ARGS; i++)
   {
     tail_ARGS[i-pipe_index-1] = args[i];
-  }*/
+  }
+  //add NULL to the end of head and tail
+  head_ARGS[pipe_index] = NULL;
+  tail_ARGS[LEN_MY_ARGS - 1 - pipe_index] = NULL;
 }
 
 //child sh handle pipe, redirection, and execution
 void child_execution()
 {
-  //int pipe_index = check_pipe();
+  int pipe_index = check_pipe();
   char *head_ARGS[20];
   char *tail_ARGS[20];
 
-  if (check_pipe() == 0) //no pipe
+  if (pipe_index == 0) //no pipe
   {
     execute_command(MY_ARGS);
   }
   else //there is a pipe
   {
-    break_pipe_command(head_ARGS, tail_ARGS, 0);//pipe_index);
-    //handle_pipe(head_ARGS, tail_ARGS);
+    break_pipe_command(head_ARGS, tail_ARGS, pipe_index);
+    handle_pipe(head_ARGS, tail_ARGS);
   }
 }
 
@@ -339,6 +317,7 @@ void handle_pipe(char *head_ARGS[], char *tail_ARGS[])
   pipe(pd); //create PIPE, pd[0] for read from the pipe
 	    //, pd[1] for write to the pipe
   int pid = fork();
+
   if (pid < 0)
   {
     printf("Pipe fork failed\n");
@@ -350,6 +329,7 @@ void handle_pipe(char *head_ARGS[], char *tail_ARGS[])
     close(1);
     dup(pd[1]);
     close(pd[1]);
+    printf("head[0]=%s\n", head_ARGS[0]);//test
     execute_command(head_ARGS);
   }
   else //child, to read
@@ -358,6 +338,7 @@ void handle_pipe(char *head_ARGS[], char *tail_ARGS[])
     close(0);
     dup(pd[0]);
     close(pd[0]);
+    printf("tail[0]=%s\n", tail_ARGS[0]);//test
     execute_command(tail_ARGS);
   }
 }
