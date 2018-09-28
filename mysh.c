@@ -127,8 +127,9 @@ char * prompt_command()
 //return index of the derirction symbol
 char *check_redirection(int *index)
 { 
+  int i;
   char *result = NULL;
-  for (int i = 0; i < LEN_MY_ARGS; i++)
+  for (i = 0; i < LEN_MY_ARGS; i++)
     {
       if (strcmp(MY_ARGS[i], "<") == 0 ||
 	  strcmp(MY_ARGS[i], ">") == 0 ||
@@ -174,7 +175,6 @@ void handle_exit()
   exit(1);
 }
 
-
 //handle commands different than "cd" and "exist"
 void handle_other_command()
 {
@@ -213,7 +213,7 @@ void execute_command(char *my_args[])
   }
 
   //executing the command
-  for (int i = 0; i < LEN_PATH; i++)
+  for (i = 0; i < LEN_PATH; i++)
   {
     char file_path[50];
     strcpy(file_path, PATH[i]);
@@ -255,7 +255,8 @@ void handle_redirection(char *file_name, char *direction)
 int check_pipe()
 {
   int result = 0;
-  for (int i = 0; i < LEN_MY_ARGS; i++)
+  int i = 0;
+  for (i = 0; i < LEN_MY_ARGS; i++)
     {
       if (strcmp(MY_ARGS[i], "|") == 0)
 	{
@@ -272,20 +273,24 @@ int check_pipe()
 void break_pipe_command(char *head_ARGS[], 
 	char *tail_ARGS[], int pipe_index)
 {
-  //make a copy of MY_ARGS
-  char args[50][20];
-  for (int i = 0; i < LEN_MY_ARGS; i++)
+  //make two copies of MY_ARGS
+  char args1[50][20];
+  char args2[50][20];
+  int i = 0;
+  for (i = 0; i < LEN_MY_ARGS; i++)
   {
-    strcpy(args[i], MY_ARGS[i]);
+    strcpy(args1[i], MY_ARGS[i]);
+    strcpy(args2[i], MY_ARGS[i]);
   }  
+
   //make head and tail
-  for (int i = 0; i < pipe_index; i++)
+  for (i = 0; i < pipe_index; i++)
   {
-    head_ARGS[i] = args[i];
+    head_ARGS[i] = args1[i];
   }
-  for (int i = pipe_index + 1; i < LEN_MY_ARGS; i++)
+  for (i = pipe_index + 1; i < LEN_MY_ARGS; i++)
   {
-    tail_ARGS[i-pipe_index-1] = args[i];
+    tail_ARGS[i-pipe_index-1] = args2[i];
   }
   //add NULL to the end of head and tail
   head_ARGS[pipe_index] = NULL;
@@ -329,7 +334,6 @@ void handle_pipe(char *head_ARGS[], char *tail_ARGS[])
     close(1);
     dup(pd[1]);
     close(pd[1]);
-    printf("head[0]=%s\n", head_ARGS[0]);//test
     execute_command(head_ARGS);
   }
   else //child, to read
@@ -338,7 +342,6 @@ void handle_pipe(char *head_ARGS[], char *tail_ARGS[])
     close(0);
     dup(pd[0]);
     close(pd[0]);
-    printf("tail[0]=%s\n", tail_ARGS[0]);//test
     execute_command(tail_ARGS);
   }
 }
