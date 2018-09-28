@@ -49,13 +49,26 @@ int main(int argc, char *argv[], char *env[])
   //set up variables
   find_home(); //var HOME
   find_path(); //var PATH, LEN_PATH
-
-  char *input_line = prompt_command();
-  tokenize(input_line, " ", MY_ARGS, &LEN_MY_ARGS); //var MY_ARGS, LEN_MY_ARGS
   set_env(env); //var MY_ENVP
 
-  //execute the program
-  handle_commands();
+  while (1==1)
+  {
+	sleep(1); 
+  	char *input_line = prompt_command();
+  	tokenize(input_line, " ", MY_ARGS, &LEN_MY_ARGS); //var MY_ARGS, LEN_MY_ARGS
+        
+        //reset MY_ARGS because MY_ARGS can have extra values from
+        // the last call
+        int i = LEN_MY_ARGS;
+        while (MY_ARGS[i] != NULL)
+        {
+	    MY_ARGS[i] = NULL;
+            i++;
+	}
+
+  	//execute the program
+  	handle_commands();
+  }
 
   return 0;
 }
@@ -221,7 +234,8 @@ void execute_command(char *my_args[])
     strcat(file_path, my_args[0]);
     execve(file_path, my_args, MY_ENVP);
   }
-  printf("Invalid command\n");
+  if (strcmp(MY_ARGS[0], "") != 0)  //this is a try
+  	printf("Invalid command\n");
 }
 
 //Handle I/O redirection
